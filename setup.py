@@ -18,7 +18,7 @@ from torch.utils.cpp_extension import (
 
 # ninja build does not work unless include_dirs are abs path
 this_dir = os.path.dirname(os.path.abspath(__file__))
-
+cuda_lib_dir = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/lib/x64'
 
 def get_cuda_bare_metal_version(cuda_dir):
     raw_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"], universal_newlines=True)
@@ -177,6 +177,8 @@ if "--cuda_ext" in sys.argv:
     raise_if_cuda_home_none("--cuda_ext")
     check_cuda_torch_binary_vs_bare_metal(CUDA_HOME)
 
+    define_macros = ["-D_ENABLE_EXTENDED_ALIGNED_STORAGE"]
+
     ext_modules.append(
         CUDAExtension(
             name="amp_C",
@@ -198,13 +200,13 @@ if "--cuda_ext" in sys.argv:
                 "csrc/update_scale_hysteresis.cu",
             ],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-lineinfo",
                     "-O3",
                     # '--resource-usage',
                     "--use_fast_math",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -213,8 +215,8 @@ if "--cuda_ext" in sys.argv:
             name="syncbn",
             sources=["csrc/syncbn.cpp", "csrc/welford.cu"],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
-                "nvcc": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
+                "nvcc": ["-O3"] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -224,8 +226,8 @@ if "--cuda_ext" in sys.argv:
             name="fused_layer_norm_cuda",
             sources=["csrc/layer_norm_cuda.cpp", "csrc/layer_norm_cuda_kernel.cu"],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
-                "nvcc": ["-maxrregcount=50", "-O3", "--use_fast_math"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
+                "nvcc": ["-maxrregcount=50", "-O3", "--use_fast_math"] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -235,9 +237,11 @@ if "--cuda_ext" in sys.argv:
             name="mlp_cuda",
             sources=["csrc/mlp.cpp", "csrc/mlp_cuda.cu"],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
-                "nvcc": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
+                "nvcc": ["-O3"] + define_macros + version_dependent_macros,
             },
+            libraries=['cublas', 'cublasLt'],  # 指定需要链接的库
+            library_dirs=[cuda_lib_dir],
         )
     )
     ext_modules.append(
@@ -245,9 +249,11 @@ if "--cuda_ext" in sys.argv:
             name="fused_dense_cuda",
             sources=["csrc/fused_dense.cpp", "csrc/fused_dense_cuda.cu"],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
-                "nvcc": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
+                "nvcc": ["-O3"] + define_macros + version_dependent_macros,
             },
+            libraries=['cublas', 'cublasLt'],  # 指定需要链接的库
+            library_dirs=[cuda_lib_dir],
         )
     )
 
@@ -260,14 +266,14 @@ if "--cuda_ext" in sys.argv:
             ],
             include_dirs=[os.path.join(this_dir, "csrc")],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-O3",
                     "-U__CUDA_NO_HALF_OPERATORS__",
                     "-U__CUDA_NO_HALF_CONVERSIONS__",
                     "--expt-relaxed-constexpr",
                     "--expt-extended-lambda",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -281,14 +287,14 @@ if "--cuda_ext" in sys.argv:
             ],
             include_dirs=[os.path.join(this_dir, "csrc")],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-O3",
                     "-U__CUDA_NO_HALF_OPERATORS__",
                     "-U__CUDA_NO_HALF_CONVERSIONS__",
                     "--expt-relaxed-constexpr",
                     "--expt-extended-lambda",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -299,14 +305,14 @@ if "--cuda_ext" in sys.argv:
             sources=["csrc/megatron/scaled_masked_softmax.cpp", "csrc/megatron/scaled_masked_softmax_cuda.cu"],
             include_dirs=[os.path.join(this_dir, "csrc")],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-O3",
                     "-U__CUDA_NO_HALF_OPERATORS__",
                     "-U__CUDA_NO_HALF_CONVERSIONS__",
                     "--expt-relaxed-constexpr",
                     "--expt-extended-lambda",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -317,14 +323,14 @@ if "--cuda_ext" in sys.argv:
             sources=["csrc/megatron/scaled_softmax.cpp", "csrc/megatron/scaled_softmax_cuda.cu"],
             include_dirs=[os.path.join(this_dir, "csrc")],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-O3",
                     "-U__CUDA_NO_HALF_OPERATORS__",
                     "-U__CUDA_NO_HALF_CONVERSIONS__",
                     "--expt-relaxed-constexpr",
                     "--expt-extended-lambda",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -338,14 +344,14 @@ if "--cuda_ext" in sys.argv:
             ],
             include_dirs=[os.path.join(this_dir, "csrc")],
             extra_compile_args={
-                "cxx": ["-O3"] + version_dependent_macros,
+                "cxx": ["-O3"] + define_macros + version_dependent_macros,
                 "nvcc": [
                     "-O3",
                     "-U__CUDA_NO_HALF_OPERATORS__",
                     "-U__CUDA_NO_HALF_CONVERSIONS__",
                     "--expt-relaxed-constexpr",
                     "--expt-extended-lambda",
-                ] + version_dependent_macros,
+                ] + define_macros + version_dependent_macros,
             },
         )
     )
@@ -384,6 +390,8 @@ if "--cuda_ext" in sys.argv:
                         "--use_fast_math",
                     ] + version_dependent_macros + cc_flag,
                 },
+                libraries=['cublas', 'cublasLt'],  # 指定需要链接的库
+                library_dirs=[cuda_lib_dir],
             )
         )
 

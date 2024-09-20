@@ -55,11 +55,17 @@ at::Tensor update_scale_hysteresis_cuda(at::Tensor current_scale,
                                         const int64_t growth_interval,
                                         const int hysteresis)
 {
+  // 使用 data_ptr 来获取指针，并通过 const关键字控制只读性
+  float* current_scale_ptr = current_scale.data_ptr<float>();
+  int* growth_tracker_ptr = growth_tracker.data_ptr<int>();
+  int* hysteresis_tracker_ptr = hysteresis_tracker.data_ptr<int>();
+  const float* found_inf_ptr = found_inf.data_ptr<float>(); // 这里我们手动加上 const
+
   update_scale_hysteresis_cuda_kernel<<<1, 1, 0, at::cuda::getCurrentCUDAStream()>>>(
-    current_scale.mutable_data_ptr<float>(),
-    growth_tracker.mutable_data_ptr<int>(),
-    hysteresis_tracker.mutable_data_ptr<int>(),
-    found_inf.const_data_ptr<float>(),
+    current_scale_ptr,
+    growth_tracker_ptr,
+    hysteresis_tracker_ptr,
+    found_inf_ptr,
     growth_factor,
     backoff_factor,
     growth_interval,
@@ -69,3 +75,4 @@ at::Tensor update_scale_hysteresis_cuda(at::Tensor current_scale,
 
   return current_scale;
 }
+

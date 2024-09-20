@@ -1,3 +1,31 @@
+# 版本说明
+## 适配环境：
+win10、pytorch2.0.0+cu118、Python3.10.10
+
+## 菜鸟免责声明
+全是GPT帮我的，俺也不知道对不对
+
+## Debug 记录：
+1、一开始出现的是`'['ninja', '-v']' returned non-zero exit status 1`，太误导了，一开始以为是 ninja 的问题，后来才发现不是。这个命令来自于 `\torch\utils\cpp_extension.py` 中的 `_run_ninja_build`函数，这个函数只执行`ninja -v`命令，具体的编译细节是由`apex\build\temp.win-amd64-cpython-310\Release\build.ninja`的`build.ninja`来决定的，所以手动运行`ninja -v`会出现缺少`build.ninja`的提示。这个误导的原因，我感觉可能是多核处理的时候，真正的编译错误被快速覆盖过去了，在 terminal 中来不及看到就没了，而且也没办法把所有的编译信息保存下来。
+
+2、针对问题 1，需要把`\torch\utils\cpp_extension.py`，`class BuildExtension(build_ext)`的`init`实现中`self.use_ninja = kwargs.get('use_ninja', True)`的 True 改为 False，即默认关闭ninja编译功能，这样就默认一个文件一个文件的编译，便于定位错误。
+
+3、后续就是一个错误一个错误的排查了
+
+3.1
+`error: static assertion failed with "You've instantiated std::aligned_storage<Len, Align> with an extended alignment (in other words, Align > alignof(max_align_t)). Before VS 2017 15.8, the member "type" would non-conformingly have an alignment of only alignof(max_align_t). VS 2017 15.8 was fixed to handle this correctly, but the fix inherently changes layout and breaks binary compatibility (*only* for uses of aligned_storage with extended alignments). Please define either (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to acknowledge that you understand this message and that you actually want a type with an extended alignment, or (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence this message and get the old non-conforming behavior."`
+
+这个错误来自编译器遇到 std::aligned_storage 时的一项特性行为变化。大概意思就是，在 VS 2017 版本 15.8 之前，std::aligned_storage 对于大 alignof(max_align_t) 的对齐要求，非标准地采用了 alignof(max_align_t)。但是自 VS 2017 版本 15.8 起，修复了这一行为，使得对齐要求得到正确处理，但这意味着在某些情况下可能会影响二进制兼容性。
+
+从错误信息中，VS 提供了两个选项来处理这个问题：
+
+- 定义 _ENABLE_EXTENDED_ALIGNED_STORAGE，表示你理解并希望使用如此处理大对齐要求的类型。
+- 定义 _DISABLE_EXTENDED_ALIGNED_STORAGE，以保持旧的行为，这可能导致与标准不一致的对齐，但维持旧的二进制兼容性。
+
+解决方案是在`setup.py`文件中，相关文件编译命令的`extra_compile_args`中添加`["-D_ENABLE_EXTENDED_ALIGNED_STORAGE"]`
+
+3.2 剩下就是单个文件的debug了，代码已编译测试通过。(ps：setup.py 中的 cuda_lib_dir 是我自己电脑的路径，需要按需修改)
+
 # Introduction
 
 This repository holds NVIDIA-maintained utilities to streamline mixed precision and distributed training in Pytorch.
